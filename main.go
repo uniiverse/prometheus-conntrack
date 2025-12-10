@@ -69,7 +69,12 @@ func main() {
 		engine = docker.NewEngine(*dockerEndpoint)
 	}
 
-	workloadLabels := strings.Split(*workloadLabelsString, ",")
+	var workloadLabels []string
+	if *workloadLabelsString == "" {
+		workloadLabels = []string{}
+	} else {
+		workloadLabels = strings.Split(*workloadLabelsString, ",")
+	}
 	// For kubelet engine, automatically include pod_namespace label if not already present
 	if *engineName == "kubelet" {
 		hasPodNamespace := false

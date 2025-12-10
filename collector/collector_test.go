@@ -114,7 +114,7 @@ func TestCollectorWithPodNamespace(t *testing.T) {
 		&fakeDNSCache{},
 		classifier,
 	)
-	
+
 	// Create a separate registry to avoid conflicts with the default registry
 	registry := prometheus.NewRegistry()
 	registry.MustRegister(collector)
