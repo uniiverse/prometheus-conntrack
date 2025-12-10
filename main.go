@@ -70,9 +70,18 @@ func main() {
 	}
 
 	workloadLabels := strings.Split(*workloadLabelsString, ",")
-	// For kubelet engine, automatically include pod_namespace label
+	// For kubelet engine, automatically include pod_namespace label if not already present
 	if *engineName == "kubelet" {
-		workloadLabels = append(workloadLabels, "pod_namespace")
+		hasPodNamespace := false
+		for _, label := range workloadLabels {
+			if label == "pod_namespace" {
+				hasPodNamespace = true
+				break
+			}
+		}
+		if !hasPodNamespace {
+			workloadLabels = append(workloadLabels, "pod_namespace")
+		}
 	}
 
 	cidrClasses := map[string]string{}
