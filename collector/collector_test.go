@@ -93,6 +93,41 @@ func TestCollector(t *testing.T) {
 	assert.Contains(t, lines, `conntrack_workload_connections{container="my-container1",destination="192.168.50.5:2376",destination_name="bob-service",destination_zone="",direction="outgoing",label_app="app1",protocol="tcp",state="ESTABLISHED"} 0`)
 }
 
+func TestCollectorWithPodNamespace(t *testing.T) {
+	conntrack := &fakeConntrack{
+		conns: [][]*Conn{
+			{
+				{OriginIP: "10.10.1.2", OriginPort: 33404, DestIP: "192.168.50.4", DestPort: 2375, State: "ESTABLISHED", Protocol: "tcp"},
+			},
+		},
+	}
+
+	classifier, err := NewCIDRClassifier(map[string]string{})
+	require.NoError(t, err)
+
+	collector, _ := New(
+		workloadTesting.New("kubelet", "pod", []*workload.Workload{
+			{Name: "my-pod1", IP: "10.10.1.2", Labels: map[string]string{"app": "myapp", "pod_namespace": "production"}},
+		}),
+		conntrack.conntrack,
+		[]string{"app", "pod_namespace"},
+		&fakeDNSCache{},
+		classifier,
+	)
+	
+	// Create a separate registry to avoid conflicts with the default registry
+	registry := prometheus.NewRegistry()
+	registry.MustRegister(collector)
+	
+	rr := httptest.NewRecorder()
+	req, err := http.NewRequest("GET", "/metrics", nil)
+	require.NoError(t, err)
+	promhttp.HandlerFor(registry, promhttp.HandlerOpts{}).ServeHTTP(rr, req)
+	assert.Equal(t, http.StatusOK, rr.Code)
+	lines := strings.Split(rr.Body.String(), "\n")
+	assert.Contains(t, lines, `conntrack_workload_connections{destination="192.168.50.4:2375",destination_name="alice-service",destination_zone="",direction="outgoing",label_app="myapp",label_pod_namespace="production",pod="my-pod1",protocol="tcp",state="ESTABLISHED"} 1`)
+}
+
 func TestPerformMetricClean(t *testing.T) {
 	collector := &ConntrackCollector{}
 	now := time.Now().UTC()
